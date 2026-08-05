@@ -6,7 +6,14 @@ using System.Threading.Tasks;
 
 namespace LP_Solver.Models
 {
-    internal class VariableType
+    // Sign restriction per decision variable, from the last line of the input file:
+    // +, -, urs, int, bin
+    public enum VariableType
     {
+        Positive,
+        Negative,
+        Urs,
+        Int,
+        Bin
     }
 }
