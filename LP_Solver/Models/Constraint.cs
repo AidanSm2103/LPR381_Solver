@@ -13,8 +13,8 @@ namespace LP_Solver.Models
         Equal
     }
 
-    // TODO (Person 1): populate one of these per constraint line in the input file —
-    // e.g. "+11 +8 +6 +14 +10 +10 <=40" -> Coefficients=[11,8,6,14,10,10], Relation=LessThanOrEqual, Rhs=40
+    // Parsed from one constraint line, e.g.
+    // "+11 +8 +6 +14 +10 +10 <=40" -> Coefficients=[11,8,6,14,10,10], Relation=LessThanOrEqual, Rhs=40
     public class Constraint
     {
         public double[] Coefficients { get; set; } = System.Array.Empty<double>();
