@@ -8,13 +8,32 @@ namespace LP_Solver.Core
 {
     public static class TableauFormatter
     {
-        // TODO: whoever writes the first algorithm, implement this once —
-        // it should return one aligned/formatted string per tableau state
-        // (values rounded to 3dp per spec) so every algorithm's IterationLog
-        // entries look consistent in both console and output file.
-        public static string Format(Tableau tableau, int iterationNumber)
+        public static string Format(Tableau tableau, int iterationNumber, string? label = null)
         {
-            return $"TODO: tableau formatting not implemented yet (iteration {iterationNumber}).";
+            var sb = new StringBuilder();
+            sb.AppendLine();
+            sb.AppendLine(label ?? $"Iteration {iterationNumber}");
+
+            sb.Append("Basic".PadRight(8));
+            foreach (var colLabel in tableau.ColumnLabels)
+                sb.Append(colLabel.PadLeft(10));
+            sb.AppendLine();
+
+            for (int r = 0; r < tableau.RowCount; r++)
+            {
+                string rowLabel = r == tableau.ObjectiveRow
+                    ? "z"
+                    : tableau.ColumnLabels[tableau.BasicVariableIndices[r]];
+
+                sb.Append(rowLabel.PadRight(8));
+
+                for (int c = 0; c < tableau.ColCount; c++)
+                    sb.Append(tableau.Matrix[r, c].ToString("F3").PadLeft(10));
+
+                sb.AppendLine();
+            }
+
+            return sb.ToString();
         }
     }
 }
