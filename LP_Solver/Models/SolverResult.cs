@@ -14,10 +14,9 @@ namespace LP_Solver.Models
         Unbounded
     }
 
-    // TODO (whoever owns each algorithm): populate this at the end of Solve().
-    // IterationLog should hold one already-formatted string per tableau iteration
-    // (use Core/TableauFormatter for that), so OutputWriter and the console
-    // can both just print each entry in order without knowing algorithm internals.
+    // Output of any ISolver. IterationLog holds one already-formatted string per
+    // tableau/iteration state (via Core.TableauFormatter), so OutputWriter and the
+    // console can both just print each entry in order without algorithm-specific logic.
     public class SolverResult
     {
         public SolverStatus Status { get; set; }

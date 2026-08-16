@@ -17,3 +17,4 @@ namespace LP_Solver.Models
         Bin
     }
 }
+
