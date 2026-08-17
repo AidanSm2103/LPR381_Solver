@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using LP_Solver.Core;
 using LP_Solver.Models;
+using LP_Solver.Algorithms.Simplex;
 
 namespace LP_Solver.Algorithms.BranchAndBound
 {
@@ -138,6 +139,238 @@ namespace LP_Solver.Algorithms.BranchAndBound
             // --------------------------------------------------
             // FATHOM 1: INFEASIBLE
             // --------------------------------------------------
+
+            if(relaxationResult.Status == SolverStatus.Infeasible)
+            {
+                node.Status = SubProblemStatus.Infeasible;
+                finalResult.IterationLog.Add($"Node is infeasible. Marking as fathomed."); 
+                return;
+            }
+
+            // --------------------------------------------------
+            // FATHOM 2: UNBOUNDED
+            // --------------------------------------------------
+
+             if(relaxationResult.Status == SolverStatus.Unbounded)
+            {
+                finalResult.IterationLog.Add($"Node is unbounded. Marking as fathomed.");
+                node.Status = SubProblemStatus.Fathomed;
+                return;
+            }
+
+            // --------------------------------------------------
+            // FATHOM 3: Bound
+            // --------------------------------------------------
+            if(hasBestCandidate && CannotImproveBest(node.Bound, node.Model.Objective.Type))
+            {
+                node.Status = SubProblemStatus.Fathomed;
+                finalResult.IterationLog.Add($"Node Bound = {node.Bound:0.###}");
+                finalResult.IterationLog.Add($"Best Objective = {bestObjective:0.###}");
+                finalResult.IterationLog.Add($"Node cannot improve best candidate. Marking as fathomed.");
+                return;
+            }
+
+            // --------------------------------------------------
+            // Cbeck for integer solution
+            // --------------------------------------------------
+
+            int fractionalVariable = FindFractionalIntegerVariable(node.Model, relaxationResult.VariableValues);
+
+            //No fractional integer - restricted variables
+            if(fractionalVariable == -1)
+            {
+                node.Status = SubProblemStatus.Integer;
+                finalResult.IterationLog.Add($"Node is integer feasible");
+                finalResult.IterationLog.Add($"Candidate objective = " +$"{relaxationResult.ObjectiveValue:0.###}");
+
+                UpdateBestCandidate(relaxationResult, node.Model, finalResult);
+
+                node.Status = SubProblemStatus.Fathomed;
+
+                finalResult.IterationLog.Add($"Integer Node is fathomed.");
+
+                return;
+            }
+
+            // --------------------------------------------------
+            // BRANCH
+            // --------------------------------------------------
+
+            double fractionalValue = relaxationResult.VariableValues[fractionalVariable];
+
+            double lowerValue = Math.Floor(fractionalValue);
+            double upperValue = Math.Ceiling(fractionalValue);
+
+            finalResult.IterationLog.Add("");
+            finalResult.IterationLog.Add($"Fractional variable selected: " + $"x{fractionalVariable + 1} = {fractionalValue:0.###}");
+
+            finalResult.IterationLog.Add("Creating two child sub-problems");
+
+            finalResult.IterationLog.Add($"Child 1: x{fractionalVariable + 1} <= {lowerValue:0.###}");
+
+            finalResult.IterationLog.Add($"Child 2: x{fractionalVariable + 1} >= {upperValue:0.###}");
+
+            //create both branches
+            var lowerChild = CreateChild(node, fractionalVariable, ConstraintRelation.LessThanOrEqual, lowerValue);
+            var upperChild = CreateChild(node, fractionalVariable, ConstraintRelation.GreaterThanOrEqual, upperValue);
+
+            // --------------------------------------------------
+            // Backtracking
+            // --------------------------------------------------
+
+            finalResult.IterationLog.Add("");
+            finalResult.IterationLog.Add("Exploring lower branch...");
+
+            Branch(lowerChild, finalResult);
+
+            finalResult.IterationLog.Add("");
+            finalResult.IterationLog.Add($"Backtracking to depth {node.Depth}.");
+
+            finalResult.IterationLog.Add("Exploring upper branch...");
+
+            Branch(upperChild, finalResult);
+
+            finalResult.IterationLog.Add("");
+            finalResult.IterationLog.Add($"Finished all branches below depth {node.Depth}.");
+
         }
+
+        //Creates a child LP model by copying the parent model and adding one branching constraint
+        private SubProblem CreateChild( SubProblem parent, int variableIndex, ConstraintRelation relation, double value)
+        {
+             if (parent.Model == null)
+                throw new InvalidOperationException("Cannot create a child without a parent model.");
+
+            var childModel = CloneModel(parent.Model);
+
+            int variableCount = childModel.Objective.Coefficients.Length;
+
+            var coefficients = new double[variableCount];
+
+            coefficients[variableIndex] = 1.0;
+
+            childModel.Constraints.Add(new Constraint{Coefficients = coefficients, Relation = relation, Rhs = value});
+
+            return new SubProblem{Model = childModel, Parent = parent, Depth = parent.Depth + 1, BranchVariableIndex = variableIndex, BranchRelation = relation, BranchValue = value, Status = SubProblemStatus.Active};
+        }
+
+        //Determines wether an LP bound cannot improve the best integer solution already found
+        private bool CannotImproveBest(double bound, ObjectiveType objectiveType)
+        {
+            if(objectiveType == ObjectiveType.Max)
+            {
+                return bound <= bestObjective + Tolerance;
+            }
+
+            return bound >= bestObjective - Tolerance;
+        }
+
+        //Finds the first variable that is required to be integer but currently has fractional value
+        private int FindFractionalIntegerVariable(LPModel model, double[] values)
+        {
+            int count = Math.Min(model.SignRestrictions.Count, values.Length );
+
+            for(int i = 0; i < count; i++)
+            {
+                var type = model.SignRestrictions[i];
+
+                if(type != VariableType.Int && type != VariableType.Bin)
+                {
+                    continue;
+                }
+
+                double value = values[i];
+
+                if(Math.Abs(value - Math.Round(value)) > Tolerance)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        //Updates the incumbet/best integer solution
+        private void UpdateBestCandidate(SolverResult candidate, LPModel model, SolverResult finalResult)
+        {
+            bool better;
+
+            if(!hasBestCandidate)
+            {
+                better = true;
+            }
+            else if(model.Objective.Type == ObjectiveType.Max)
+            {
+                better = candidate.ObjectiveValue > bestObjective + Tolerance;
+            }
+            else
+            {
+                better = candidate.ObjectiveValue < bestObjective - Tolerance;
+            }
+
+            if(!better)
+               return;
+            
+            hasBestCandidate = true;
+
+            bestObjective = candidate.ObjectiveValue;
+
+            bestSolution = (double[])candidate.VariableValues.Clone();
+
+            finalResult.IterationLog.Add("");
+            finalResult.IterationLog.Add("NEW BEST CANDIDATE");
+            finalResult.IterationLog.Add($"Objective = {bestObjective:0.###}");
+        }
+
+        //Creates a model suitable for the LP relazation
+
+        //Binary variables must have the upper bound x <= 1
+        //Their integrality is relaxed byt the bunary upper bound remains in the LP relaxation
+        private LPModel CreateRelaxationModel(LPModel original)
+        {
+            var model = CloneModel(original);
+
+            int variableCount = model.Objective.Coefficients.Length;
+
+            for(int i = 0; i < variableCount; i++)
+            {
+                if (i >= model.SignRestrictions.Count)
+                    continue;
+
+                if(model.SignRestrictions[i] != VariableType.Bin)
+                   continue;
+
+                var coefficients = new double[variableCount];
+
+                coefficients[i] = 1.0;
+
+                bool alreadyExists = model.Constraints.Any
+                (c => c.Relation == ConstraintRelation.LessThanOrEqual && Math.Abs(c.Rhs - 1.0) <= Tolerance && 
+                Math.Abs(c.Coefficients[i] - 1.0) <= Tolerance &&c.Coefficients.Select((value, index) => index == i? 0.0
+                : Math.Abs(value)).Sum() <= Tolerance);
+
+                if(!alreadyExists)
+                {
+                    model.Constraints.Add(new Constraint
+                        {Coefficients = coefficients, Relation = ConstraintRelation.LessThanOrEqual, Rhs = 1.0});
+                    
+                }               
+            }
+
+            return model;
+        }
+
+        //Makes a copy of the LP model so that adding branch constraints never changes the original input model
+        private LPModel CloneModel(LPModel original)
+        {
+            var clone = new LPModel{Objective = original.Objective, SignRestrictions = new List<VariableType>(original.SignRestrictions), SourceFileName = original.SourceFileName};
+
+            foreach(var constraint in original.Constraints)
+            {
+                clone.Constraints.Add(new Constraint{Coefficients = (double[])constraint.Coefficients.Clone(), Relation = constraint.Relation, Rhs = constraint.Rhs});
+            }
+            return clone;
+        }
+
     }
 }
