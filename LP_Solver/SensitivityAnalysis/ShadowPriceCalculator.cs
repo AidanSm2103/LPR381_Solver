@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,13 +7,26 @@ using LP_Solver.Models;
 
 namespace LP_Solver.SensitivityAnalysis
 {
-    // TODO (Person 4): shadow prices are the objective row values under the
-    // slack/surplus columns of the final optimal tableau.
     public static class ShadowPriceCalculator
     {
-        // TODO (Person 4): shadow prices are the objective row values under the
-        // slack/surplus columns of the final optimal tableau.
         public static string Display(SolverResult result)
-            => "TODO: shadow prices not implemented yet.";
+        {
+            string? error = SensitivityAnalyzer.CheckReady(result);
+            if (error != null) return error;
+
+            var tableau = result.FinalTableau!;
+            var model = result.Model!;
+
+            var sb = new StringBuilder();
+            sb.AppendLine("Shadow prices:");
+
+            for (int i = 0; i < model.Constraints.Count; i++)
+            {
+                double y = SensitivityAnalyzer.GetShadowPrice(model, tableau, i);
+                sb.AppendLine($"  y{i + 1} = {y:F3}");
+            }
+
+            return sb.ToString();
+        }
     }
 }
