@@ -396,7 +396,7 @@ namespace LP_Solver.SensitivityAnalysis
             {
                 ConstraintRelation.LessThanOrEqual => raw,
                 ConstraintRelation.GreaterThanOrEqual => -raw,
-                ConstraintRelation.Equal => raw + CanonicalFormBuilder.BigM,
+                ConstraintRelation.Equal => raw - CanonicalFormBuilder.BigM,
                 _ => raw
             };
         }
