@@ -150,6 +150,10 @@ namespace LP_Solver.Algorithms.Simplex
 
             double objective = 0;
             for (int i = 0; i < m; i++) objective += c[basis[i]] * finalXB[i];
+
+            result.FinalTableau = BuildFinalTableau(A, c, labels, basis, finalBinv, finalXB, objective);
+            result.Model = model;
+
             result.ObjectiveValue = model.Objective.Type == ObjectiveType.Min ? -objective : objective;
 
             return result;
@@ -163,6 +167,54 @@ namespace LP_Solver.Algorithms.Simplex
                 for (int row = 0; row < m; row++)
                     B[row, col] = A[row, basis[col]];
             return B;
+        }
+
+        private static Tableau BuildFinalTableau(
+            double[,] A, double[] c, string[] labels, int[] basis,
+            double[,] Binv, double[] xB, double objectiveInternal)
+        {
+            int m = A.GetLength(0);
+            int totalCols = A.GetLength(1);
+            var tableau = new Tableau(m, totalCols + 1);
+
+            for (int j = 0; j < totalCols; j++) tableau.ColumnLabels[j] = labels[j];
+            tableau.ColumnLabels[totalCols] = "RHS";
+            tableau.BasicVariableIndices = (int[])basis.Clone();
+
+            // Constraint rows: Binv * A, RHS column = xB (same values Revised Simplex already computed).
+            for (int r = 0; r < m; r++)
+            {
+                for (int j = 0; j < totalCols; j++)
+                {
+                    double sum = 0;
+                    for (int k = 0; k < m; k++) sum += Binv[r, k] * A[k, j];
+                    tableau.Matrix[r, j] = sum;
+                }
+                tableau.Matrix[r, totalCols] = xB[r];
+            }
+
+            // Objective row: z_j - c_j per column (same convention Primal Simplex / Sensitivity Analysis use),
+            // RHS = objective value in internal (max-form) terms.
+            var cb = new double[m];
+            for (int i = 0; i < m; i++) cb[i] = c[basis[i]];
+
+            var y = new double[m];
+            for (int j = 0; j < m; j++)
+            {
+                double sum = 0;
+                for (int i = 0; i < m; i++) sum += cb[i] * Binv[i, j];
+                y[j] = sum;
+            }
+
+            for (int j = 0; j < totalCols; j++)
+            {
+                double zj = 0;
+                for (int i = 0; i < m; i++) zj += y[i] * A[i, j];
+                tableau.Matrix[m, j] = zj - c[j];
+            }
+            tableau.Matrix[m, totalCols] = objectiveInternal;
+
+            return tableau;
         }
 
         private static string FormatIteration(int iteration, string[] labels, int[] basis, double[,] Binv, double[] y, double[] xB)
