@@ -10,10 +10,6 @@ using LP_Solver.Algorithms.Simplex;
 
 namespace LP_Solver.Algorithms.BranchAndBound
 {
-    // TODO (Person 2): implement Branch & Bound Simplex.
-    // Spec requires: backtracking, create ALL possible sub-problems to branch on,
-    // fathom all possible nodes, display all table iterations of every sub-problem,
-    // and display the best candidate found.
     public class BranchAndBoundSimplexSolver : ISolver
     {
         private const double Tolerance = 1e-6;
@@ -86,10 +82,6 @@ namespace LP_Solver.Algorithms.BranchAndBound
             }
 
             result.IterationLog.Add($"Objective Value = {bestObjective:0.###}");
-
-            // TODO: branch/bound/fathom loop over a stack or queue of SubProblem,
-            // logging each sub-problem's tableau iterations, tracking best candidate
-            result.IterationLog.Add("TODO: Branch & Bound Simplex not implemented yet.");
 
             return result;
         }

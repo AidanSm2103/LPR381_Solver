@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using LP_Solver.Core;
 
 namespace LP_Solver.Models
 {
@@ -14,9 +15,7 @@ namespace LP_Solver.Models
         Unbounded
     }
 
-    // Output of any ISolver. IterationLog holds one already-formatted string per
-    // tableau/iteration state (via Core.TableauFormatter), so OutputWriter and the
-    // console can both just print each entry in order without algorithm-specific logic.
+    // Output of any ISolver.
     public class SolverResult
     {
         public SolverStatus Status { get; set; }
@@ -24,5 +23,8 @@ namespace LP_Solver.Models
         public double[] VariableValues { get; set; } = System.Array.Empty<double>();
         public List<string> IterationLog { get; set; } = new();
         public string AlgorithmName { get; set; } = "";
+
+        public Tableau? FinalTableau { get; set; }
+        public LPModel? Model { get; set; }
     }
 }

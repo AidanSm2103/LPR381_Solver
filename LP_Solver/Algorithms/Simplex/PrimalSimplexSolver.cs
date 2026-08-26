@@ -70,6 +70,10 @@ namespace LP_Solver.Algorithms.Simplex
             double objectiveValue = tableau.Matrix[tableau.ObjectiveRow, tableau.RhsColumn];
             result.ObjectiveValue = model.Objective.Type == ObjectiveType.Min ? -objectiveValue : objectiveValue;
 
+            // Required for Sensitivity Analysis to work after this algorithm too
+            result.FinalTableau = tableau;
+            result.Model = model;
+
             return result;
         }
 
